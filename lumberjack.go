@@ -107,9 +107,12 @@ type Logger struct {
 	// using gzip.
 	Compress bool `json:"compress" yaml:"compress"`
 
-	size int64
-	file *os.File
-	mu   sync.Mutex
+	RotateByDate bool `json:"rotatebydate" yaml:"rotatebydate"`
+
+	size       int64
+	file       *os.File
+	mu         sync.Mutex
+	createDate string
 
 	millCh    chan bool
 	startMill sync.Once
@@ -150,6 +153,14 @@ func (l *Logger) Write(p []byte) (n int, err error) {
 	}
 
 	if l.size+writeLen > l.max() {
+		if err := l.rotate(); err != nil {
+			return 0, err
+		}
+	}
+
+	t := currentTime()
+	nowDate := t.Format("20060102")
+	if l.createDate != nowDate {
 		if err := l.rotate(); err != nil {
 			return 0, err
 		}
@@ -238,6 +249,8 @@ func (l *Logger) openNew() error {
 	}
 	l.file = f
 	l.size = 0
+	t := currentTime()
+	l.createDate = t.Format("20060102")
 	return nil
 }
 
